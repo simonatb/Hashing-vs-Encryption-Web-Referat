@@ -2,9 +2,13 @@
  
 A web-based report (referat) on the differences between **encryption**, **hashing**, **salting**, and **peppering** in the context of information security and password storage.
  
-Built as part of the **Web Technologies** course at Technical University of Sofia.
+Built as part of the **Web Technologies** course at University of Sofia.
+
+---
+ ![description](referat.png)
  
 ---
+
  
 ## Topics Covered
  
