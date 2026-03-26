@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Разлики при криптиране, хеширане и посоляване (salt vs. pepper)</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Roboto+Mono:wght@300;400;500&display=swap">
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<header>
+    <h1>Разлики при криптиране, хеширане и посоляване (salt vs. pepper)</h1>
+    <nav>
+        <ul>
+            <li><a href="#intro">Въведение</a></li>
+            <li><a href="#encryption">Криптиране</a></li>
+            <li><a href="#hashing">Хеширане</a></li>
+            <li><a href="#salting">Посоляване</a></li>
+            <li><a href="#peppering">Пиперене</a></li>
+            <li><a href="#comparison">Сравнение</a></li>
+            <li><a href="#practices">Практики</a></li>
+            <li><a href="#information">Източници</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main>
+
+    <section id="intro">
+        <h2>1. Въведение</h2>
+        <p>Защитата на потребителски данни е един от фундаменталните проблеми на съвременната
+            информационна сигурност. Всеки ден милиони пароли, лични данни и финансова
+            информация се съхраняват и предават по мрежата. Въпросът не е дали данните ще бъдат
+            атакувани, а кога – и колко добре са защитени.</p>
+        <p>Най-популярните техники са криптиране и хеширане, но каква всъщност е разликата
+            между тях? Кога трябва да се използва едното, кога другото? И какво означават
+            термините посоляване и пиперене извън кулинарния им смисъл?</p>
+        <p>Криптирането, хеширането, посоляването и пиперенето са свързани техники, но всяка
+            притежава свойства, които я правят подходяща за различни цели. Разбирането на тези
+            разлики е критично за всеки разработчик, системен администратор или специалист
+            по сигурност [4].</p>
+        <p>Настоящият реферат разглежда подробно всяка от четирите техники, представя основните
+            алгоритми и демонстрира практическа реализация в PHP с акцент върху функцията
+            <code>password_hash()</code> [2].</p>
+    </section>
+
+    <section id="encryption">
+        <h2>2. Криптиране</h2>
+        <p>Криптирането е процес, при който информацията се преобразува в нечетим формат
+            (ciphertext), за да бъде защитена от неоторизиран достъп. Ключовото свойство е,
+            че процесът е <strong>двупосочен</strong> – данните могат да бъдат върнати в
+            оригиналния си вид чрез специален ключ [7]. Криптирането осигурява
+            конфиденциалност: само притежателят на ключа може да прочете съобщението.</p>
+
+        <p>Основните цели на криптирането са [7]:</p>
+        <ul>
+            <li>Конфиденциалност – данните са нечетими без ключ</li>
+            <li>Интегритет на данните – гарантира, че данните не са променени</li>
+            <li>Автентикация – потвърждава самоличността на изпращача</li>
+        </ul>
+
+        <div class="subsection">
+            <h3>2.1 Симетрично криптиране</h3>
+            <p>При симетричното криптиране един и същ ключ се използва за криптиране и
+                декриптиране. Предимството е скоростта – симетричните алгоритми са значително
+                по-бързи от асиметричните. Основното ограничение е необходимостта от сигурно
+                споделяне на ключа между страните [7].</p>
+            <p>Най-популярните алгоритми са AES, DES и 3DES. AES (Advanced Encryption Standard)
+                е настоящият стандарт и поддържа ключове с дължина 128, 192 или 256 бита.
+                DES и 3DES се считат за остарели и не се препоръчват за нови системи.</p>
+        </div>
+
+        <div class="subsection">
+            <h3>2.2 Асиметрично криптиране</h3>
+            <p>Асиметричното криптиране (криптиране с публичен ключ) използва двойка ключове –
+                публичен за криптиране и частен за декриптиране. Всеки може да криптира
+                съобщение с публичния ключ, но само притежателят на частния ключ може да го
+                декриптира [6].</p>
+            <p>Примери са RSA и ECC (Elliptic Curve Cryptography). Асиметричното криптиране
+                се използва широко в SSL/TLS протоколите, лежащи в основата на HTTPS, както
+                и при цифрови подписи и обмен на ключове.</p>
+        </div>
+
+        <div class="subsection">
+            <h3>2.3 Кога се използва криптиране</h3>
+            <p>Криптирането е подходящо когато данните трябва да бъдат прочетени отново
+                по-късно от оторизирана страна [4, 7]:</p>
+            <ul>
+                <li>Защита на данни при пренос – HTTPS/TLS</li>
+                <li>Защита на данни в покой – криптирани бази данни и дискове</li>
+                <li>Сигурни съобщения между потребители – end-to-end encryption</li>
+                <li>Цифрови подписи и сертификати</li>
+            </ul>
+            <p class="warning">⚠ Криптирането не е подходящо за съхранение на пароли — ако
+                нападателят получи достъп до данните и ключа, той може да прочете всичко [4].</p>
+        </div>
+    </section>
+
+    <section id="hashing">
+        <h2>3. Хеширане</h2>
+
+        <p>Хеширането е процес на преобразуване на входни данни с произволна дължина в изход
+            с фиксирана дължина (хеш стойност) чрез детерминирана математическа функция.
+            За разлика от криптирането, то е <em>еднопосочен</em> процес – от хеш стойността
+            е практически невъзможно да се възстанови оригиналният вход [5].</p>
+
+        <p>Хешираният не използва ключ. Същият вход винаги произвежда същия хеш, но дори
+            незначителна промяна на входа води до напълно различен резултат – т.нар.
+            лавинен ефект. Тази особеност го прави подходящо за <strong>верификация на
+                целостта</strong> на данните и за <strong>сигурно съхранение на пароли</strong> [5].</p>
+
+        <div class="subsection">
+            <h3>3.1 Свойства на криптографската хеш функция</h3>
+            <p>За да бъде надеждна, хеш функцията трябва да притежава следните свойства [5, 6]:</p>
+            <ul>
+                <li><strong>Детерминираност</strong> – един и същ вход винаги дава един и същ изход</li>
+                <li><strong>Бързо изчисляване</strong> – хешът се получава ефективно от произволен вход</li>
+                <li><strong>Лавинен ефект</strong> – малка промяна в данните напълно променя хеша</li>
+                <li><strong>Устойчивост на прообраз</strong> – от хеша е практически невъзможно да се пресметне оригиналният вход</li>
+                <li><strong>Устойчивост на колизии</strong> – практически невъзможно е два различни входа да дадат един и същ хеш</li>
+            </ul>
+        </div>
+
+        <div class="subsection">
+            <h3>3.2 Основни алгоритми</h3>
+            <p>На Таблица 1 е представено сравнение на популярни хеш алгоритми по дължина
+                на изхода, текущ статус и типично приложение [5, 6]:</p>
+            <table>
+                <caption>Таблица 1. Сравнение на популярни хеш алгоритми.</caption>
+                <thead>
+                <tr>
+                    <th>Алгоритъм</th>
+                    <th>Изходна дължина</th>
+                    <th>Статус</th>
+                    <th>Приложение</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>MD5</td>
+                    <td>128 бита</td>
+                    <td>Остарял / несигурен</td>
+                    <td>Контролни суми (не за пароли)</td>
+                </tr>
+                <tr>
+                    <td>SHA-1</td>
+                    <td>160 бита</td>
+                    <td>Остарял / уязвим</td>
+                    <td>Подписи (вече не се препоръчва)</td>
+                </tr>
+                <tr>
+                    <td>SHA-256</td>
+                    <td>256 бита</td>
+                    <td>Активен / препоръчан</td>
+                    <td>Blockchain, SSL сертификати, цифрови подписи</td>
+                </tr>
+                <tr>
+                    <td>SHA-3</td>
+                    <td>224–512 бита</td>
+                    <td>Активен</td>
+                    <td>IoT, пост-квантова сигурност</td>
+                </tr>
+                <tr>
+                    <td>bcrypt</td>
+                    <td>60 символа (фиксирано)</td>
+                    <td>Активен / препоръчан за пароли</td>
+                    <td>Съхранение на пароли</td>
+                </tr>
+                <tr>
+                    <td>Argon2id</td>
+                    <td>Конфигурируем</td>
+                    <td>Активен / Ново поколение</td>
+                    <td>Съхранение на пароли (OWASP препоръка)</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="subsection">
+            <h3>3.3 Хеширане на пароли</h3>
+            <p>Паролите никога не трябва да се съхраняват в открит вид или в криптирана форма.
+                Те трябва да бъдат <strong>хеширани</strong>. Дори ако нападателят получи
+                базата данни, той получава само хеш стойности – не може директно да влезе
+                с тях в системата [4, 5].</p>
+            <p>Бързите алгоритми като MD5 и SHA-256 не са подходящи за пароли – модерен GPU
+                може да провери милиарди хешове в секунда. Алгоритмите <strong>bcrypt</strong>,
+                <strong>scrypt</strong> и <strong>Argon2</strong> са проектирани да бъдат
+                изчислително скъпи, което значително забавя brute-force атаките [6].</p>
+        </div>
+
+        <div class="subsection">
+            <h3>3.4 Схема на процеса</h3>
+            <p>На Фигура 1 е илюстриран еднопосочният характер на хеш функцията – входът
+                (паролата) преминава през алгоритъма и се получава хеш стойност, която не
+                може да бъде обърната обратно към оригинала.</p>
+            <div class="diagram-wrap" id="fig1">
+                <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-stroke"/>
+                        </marker>
+                    </defs>
+
+                    <rect class="box-aqua"  x="10"  y="50" width="160" height="80" rx="6"/>
+                    <text class="text-aqua  svg-label" x="90"  y="85"  text-anchor="middle">Вход (парола)</text>
+                    <text class="text-body  svg-small" x="90"  y="110" text-anchor="middle">"MySecret2025"</text>
+
+                    <line class="line-aqua" x1="170" y1="90" x2="230" y2="90" marker-end="url(#arr2)"/>
+                    <text class="text-muted svg-tiny"  x="200" y="80"  text-anchor="middle">хеширане</text>
+
+                    <rect class="box-green" x="230" y="50" width="160" height="80" rx="6"/>
+                    <text class="text-dark  svg-label" x="310" y="85"  text-anchor="middle">Hash функция</text>
+                    <text class="text-dark  svg-small" x="310" y="110" text-anchor="middle">bcrypt / Argon2</text>
+
+                    <line class="line-aqua" x1="390" y1="90" x2="450" y2="90" marker-end="url(#arr2)"/>
+
+                    <rect class="box-red"   x="450" y="50" width="240" height="80" rx="6"/>
+                    <text class="text-red   svg-label" x="570" y="85"  text-anchor="middle">Хеш (изход)</text>
+                    <text class="text-body  svg-small" x="570" y="110" text-anchor="middle">$2y$12$QjSH496pcT5CEbzjD…</text>
+
+                    <line class="line-red dashed" x1="570" y1="130" x2="570" y2="160"/>
+                    <line class="line-red dashed" x1="310" y1="160" x2="570" y2="160"/>
+                    <text class="text-red svg-tiny" x="440" y="180" text-anchor="middle">✗ Невъзможно да се обърне</text>
+                </svg>
+                <p class="diagram-caption">Фигура 1. Еднопосочният характер на хеш функцията – обратното изчисление е практически невъзможно.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="salting">
+        <h2>4. Посоляване (Salting)</h2>
+
+        <p>Посоляването е добавянето на уникална случайно генерирана стойност – „сол" (salt) –
+            към паролата преди хеширане. Солта се съхранява в базата данни заедно с хеша, но
+            не е тайна. Целта ѝ е <em>уникалност</em>, не секретност [3].</p>
+
+        <div class="subsection">
+            <h3>4.1 Rainbow table атаки</h3>
+            <p>Без посоляване двама потребители с еднаква парола ще имат идентични хешове в
+                базата данни. Нападателят може да поддържа предварително изчислени таблици с
+                хешове на милиони чести пароли – т.нар. <strong>rainbow tables</strong>. При
+                кражба на базата той просто сравнява хешовете и открива паролата за секунди [5].</p>
+            <p>Посоляването елиминира тази заплаха – дори двама потребители с еднаква парола
+                ще имат напълно различни хешове, защото солите им са различни [3].</p>
+        </div>
+
+        <div class="subsection">
+            <h3>4.2 Как работи солта</h3>
+            <p>Солта се добавя (конкатенира) към паролата преди хеширане. Тъй като е уникална
+                за всеки потребител и се генерира случайно, резултатният хеш е непредсказуем.
+                Пример без и със сол [3]:</p>
+            <ul>
+                <li>Без сол: <code>iM$ecuR3</code> → <code>446d2b4e…</code></li>
+                <li>Със сол: <code>iM$ecuR3</code> + <code>885eef</code> → <code>a45856b0…</code></li>
+            </ul>
+            <p>Дори нападателят да знае алгоритъма, трябва да разбие всяка парола поотделно
+                с нейната сол, вместо да реши задачата веднъж за всички потребители.</p>
+        </div>
+
+        <div class="subsection">
+            <h3>4.3 Реализация в PHP</h3>
+            <p>Въведена в PHP 5.5, <code>password_hash()</code> автоматично генерира
+                криптографски защитена сол за всяка парола [2]. Не е нужно да я задавате
+                ръчно – функцията се справя много по-добре.</p>
+            <p>На Код 1 е показана основната употреба на функцията:</p>
+
+            <pre>
+// Код 1. Хеширане и верификация с password_hash()
+// Източник: PHP Manual [2]
+
+$hash = password_hash("MySecret2025", PASSWORD_BCRYPT, ['cost' => 12]);
+// → $2y$12$QjSH496pcT5CEbzjD/vtVeH03tfHKFy36d4J0Ltp3lRtee9HDxY3K
+
+if (password_verify("MySecret2025", $hash)) {
+    echo "Паролата е вярна!";
+}</pre>
+
+            <p>Хешът съдържа алгоритъма, cost параметъра и солта – всичко в едно поле.
+                Затова <code>password_verify()</code> не изисква отделно съхранение на солта [2].</p>
+
+            <p>За намиране на оптималния cost параметър за конкретния сървър може да се
+                използва следният подход (Код 2):</p>
+
+            <pre>
+// Код 2. Намиране на оптимален cost параметър (~50ms)
+// Адаптиран по: PHP Manual [2]
+
+$cost = 8;
+do {
+    $cost++;
+    $start = microtime(true);
+    password_hash("test", PASSWORD_BCRYPT, ["cost" => $cost]);
+} while ((microtime(true) - $start) < 0.05);
+
+echo "Препоръчителен cost: " . $cost;</pre>
+        </div>
+
+        <div class="subsection">
+            <h3>4.4 Схема на процеса</h3>
+            <p>На Фигура 2 е показано как солта се комбинира с паролата преди хеширане.
+                Важно е да се отбележи, че солта се съхранява в базата данни заедно с хеша –
+                тя не е тайна, а само гарантира уникалност [3].</p>
+            <div class="diagram-wrap" id="fig2">
+                <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-stroke"/>
+                        </marker>
+                    </defs>
+
+                    <rect class="box-aqua"   x="10"  y="20"  width="140" height="60" rx="6"/>
+                    <text class="text-aqua   svg-label" x="80"  y="45"  text-anchor="middle">Парола</text>
+                    <text class="text-body   svg-small" x="80"  y="65"  text-anchor="middle">"MySecret"</text>
+
+                    <rect class="box-yellow" x="10"  y="110" width="140" height="60" rx="6"/>
+                    <text class="text-yellow svg-label" x="80"  y="135" text-anchor="middle">Сол (Salt)</text>
+                    <text class="text-body   svg-small" x="80"  y="155" text-anchor="middle">случайна / уникална</text>
+
+                    <line class="line-aqua"   x1="150" y1="50"  x2="210" y2="85"  marker-end="url(#arr3)"/>
+                    <line class="line-yellow" x1="150" y1="140" x2="210" y2="105" marker-end="url(#arr3)"/>
+
+                    <rect class="box-muted"  x="210" y="70"  width="120" height="60" rx="6"/>
+                    <text class="text-body   svg-small" x="270" y="96"  text-anchor="middle">Конкатениране</text>
+                    <text class="text-muted  svg-tiny"  x="270" y="116" text-anchor="middle">"MySecret" + сол</text>
+
+                    <line class="line-aqua"  x1="330" y1="100" x2="390" y2="100" marker-end="url(#arr3)"/>
+
+                    <rect class="box-green"  x="390" y="70"  width="120" height="60" rx="6"/>
+                    <text class="text-dark   svg-label" x="450" y="96"  text-anchor="middle">bcrypt /</text>
+                    <text class="text-dark   svg-label" x="450" y="116" text-anchor="middle">Argon2</text>
+
+                    <line class="line-aqua"  x1="510" y1="100" x2="570" y2="100" marker-end="url(#arr3)"/>
+
+                    <rect class="box-red"    x="570" y="70"  width="120" height="60" rx="6"/>
+                    <text class="text-red    svg-label" x="630" y="96"  text-anchor="middle">Хеш</text>
+                    <text class="text-body   svg-tiny"  x="630" y="116" text-anchor="middle">$2y$12$…</text>
+
+                    <line class="line-yellow dashed" x1="80"  y1="170" x2="80"  y2="190"/>
+                    <line class="line-yellow dashed" x1="80"  y1="190" x2="630" y2="190"/>
+                    <line class="line-yellow dashed" x1="630" y1="190" x2="630" y2="130" marker-end="url(#arr3)"/>
+                    <text class="text-yellow svg-tiny" x="350" y="185" text-anchor="middle">солта се съхранява в БД заедно с хеша</text>
+                </svg>
+                <p class="diagram-caption">Фигура 2. Солта се комбинира с паролата преди хеширане и се запазва в базата данни.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="peppering">
+        <h2>5. Пиперене (Peppering)</h2>
+
+        <p>Пиперенето е добавянето на тайна стойност – <em>pepper</em> – към паролата по
+            време на хеширане. За разлика от солта, пиперът <strong>не се съхранява в
+                базата данни</strong>. Той се пази отделно в специализирано хранилище като
+            Hardware Security Module (HSM) или secrets vault [1].</p>
+
+        <p>Терминът е въведен по аналогия с „salt" за да означи допълнителна тайна стойност
+            с различни характеристики. NIST препоръчва пиперът да бъде поне 112 бита,
+            за да е устойчив на brute-force атаки [1].</p>
+
+        <div class="subsection">
+            <h3>5.1 Salt vs. Pepper – ключови разлики</h3>
+            <p>На Таблица 2 е показано сравнение между двете техники по ключови критерии [1, 3]:</p>
+            <table>
+                <caption>Таблица 2. Сравнение между сол (salt) и пипер (pepper).</caption>
+                <thead>
+                <tr>
+                    <th>Характеристика</th>
+                    <th>Сол (Salt)</th>
+                    <th>Пипер (Pepper)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Уникалност</td>
+                    <td>Уникален за всеки потребител</td>
+                    <td>Обща стойност за цялата система</td>
+                </tr>
+                <tr>
+                    <td>Тайност</td>
+                    <td>Не е тайна – съхранява се в БД</td>
+                    <td>Тайна – не се съхранява в БД</td>
+                </tr>
+                <tr>
+                    <td>Местонахождение</td>
+                    <td>В базата данни, до хеша</td>
+                    <td>В HSM / secrets vault</td>
+                </tr>
+                <tr>
+                    <td>Защита срещу</td>
+                    <td>Rainbow table, dictionary атаки</td>
+                    <td>Кражба на БД без достъп до сървъра</td>
+                </tr>
+                <tr>
+                    <td>При компрометиране</td>
+                    <td>Потенциален риск</td>
+                    <td>Всички пароли трябва да бъдат ресетнати</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <p>Пиперът добавя допълнителен слой сигурност – дори при пълен достъп до базата
+                данни, без пипера разбиването на паролите е практически невъзможно [1].
+                Важно е пиперът да е уникален за всяко приложение – споделен пипер между
+                системи умножава риска при компрометиране.</p>
+        </div>
+
+        <div class="subsection">
+            <h3>5.2 Имплементация в PHP</h3>
+            <p>Пиперът се зарежда от environment variable или HSM и се добавя към паролата
+                преди хеширане (Код 3). Никога не трябва да се хардкодира директно в
+                изходния код [1]:</p>
+
+            <pre>
+// Код 3. Хеширане с пипер в PHP
+// Адаптиран по: Wikipedia – Pepper (cryptography) [1]
+
+$pepper = getenv('APP_PEPPER');
+
+function hashWithPepper(string $password, string $pepper): string {
+    $combined = $password . $pepper;
+    return password_hash($combined, PASSWORD_ARGON2ID, [
+        'memory_cost' => 65536,
+        'time_cost'   => 4,
+        'threads'     => 2,
+    ]);
+}
+
+function verifyWithPepper(string $password, string $hash, string $pepper): bool {
+    return password_verify($password . $pepper, $hash);
+}
+
+$hash    = hashWithPepper("MySecret2025", $pepper);
+$isValid = verifyWithPepper("MySecret2025", $hash, $pepper);</pre>
+        </div>
+
+        <div class="subsection">
+            <h3>5.3 Схема на процеса</h3>
+            <p>На Фигура 3 е показан пълният процес с три входа – парола, сол и пипер.
+                Забележете, че базата данни съхранява само хеша и солта – пиперът остава
+                изцяло извън нея [1].</p>
+            <div class="diagram-wrap" id="fig3">
+                <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-stroke"/>
+                        </marker>
+                    </defs>
+
+                    <rect class="box-aqua"   x="10" y="10"  width="120" height="50" rx="6"/>
+                    <text class="text-aqua   svg-label" x="70" y="40"  text-anchor="middle">Парола</text>
+
+                    <rect class="box-yellow" x="10" y="80"  width="120" height="50" rx="6"/>
+                    <text class="text-yellow svg-label" x="70" y="105" text-anchor="middle">Salt</text>
+                    <text class="text-muted  svg-tiny"  x="70" y="122" text-anchor="middle">(в БД)</text>
+
+                    <rect class="box-orange" x="10" y="150" width="120" height="50" rx="6"/>
+                    <text class="text-orange svg-label" x="70" y="175" text-anchor="middle">Pepper</text>
+                    <text class="text-muted  svg-tiny"  x="70" y="192" text-anchor="middle">(HSM / тайно)</text>
+
+                    <line class="line-aqua"   x1="130" y1="35"  x2="200" y2="90"  marker-end="url(#arr4)"/>
+                    <line class="line-yellow" x1="130" y1="105" x2="200" y2="105" marker-end="url(#arr4)"/>
+                    <line class="line-orange" x1="130" y1="175" x2="200" y2="120" marker-end="url(#arr4)"/>
+
+                    <rect class="box-muted"  x="200" y="80"  width="120" height="50" rx="6"/>
+                    <text class="text-body   svg-small" x="260" y="100" text-anchor="middle">Комбиниране</text>
+                    <text class="text-muted  svg-tiny"  x="260" y="118" text-anchor="middle">pw + salt + pepper</text>
+
+                    <line class="line-aqua"  x1="320" y1="105" x2="380" y2="105" marker-end="url(#arr4)"/>
+
+                    <rect class="box-green"  x="380" y="70"  width="130" height="70" rx="6"/>
+                    <text class="text-dark   svg-label" x="445" y="100" text-anchor="middle">Hash функция</text>
+                    <text class="text-dark   svg-small" x="445" y="120" text-anchor="middle">bcrypt / Argon2</text>
+
+                    <line class="line-aqua"  x1="510" y1="105" x2="560" y2="105" marker-end="url(#arr4)"/>
+
+                    <rect class="box-red"    x="560" y="70"  width="130" height="70" rx="6"/>
+                    <text class="text-red    svg-label" x="625" y="97"  text-anchor="middle">База данни</text>
+                    <text class="text-body   svg-tiny"  x="625" y="114" text-anchor="middle">хеш + salt</text>
+                    <text class="text-muted  svg-tiny"  x="625" y="130" text-anchor="middle">(БЕЗ pepper!)</text>
+                </svg>
+                <p class="diagram-caption">Фигура 3. Хеширане с пипер – пиперът не се съхранява в базата данни.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="comparison">
+        <h2>6. Сравнителна таблица</h2>
+        <p>На Таблица 3 е представено синтезирано сравнение на четирите техники по ключови
+            критерии. Важно е да се разбере, че те не се изключват взаимно – в добре
+            проектирана система се използват комбинирано [1, 4, 5].</p>
+
+        <table>
+            <caption>Таблица 3. Сравнение между криптиране, хеширане, посоляване и пиперене [1, 4, 5].</caption>
+            <thead>
+            <tr>
+                <th>Критерий</th>
+                <th>Криптиране</th>
+                <th>Хеширане</th>
+                <th>Посоляване</th>
+                <th>Пиперене</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>Обратимост</td>
+                <td>Да (с ключ)</td>
+                <td>Не</td>
+                <td>Не</td>
+                <td>Не</td>
+            </tr>
+            <tr>
+                <td>Нужен ключ/тайна</td>
+                <td>Да</td>
+                <td>Не</td>
+                <td>Не (солта е публична)</td>
+                <td>Да (пиперът е тайна)</td>
+            </tr>
+            <tr>
+                <td>Съхранение</td>
+                <td>Данни + ключ</td>
+                <td>Само хеш в БД</td>
+                <td>Хеш + salt в БД</td>
+                <td>Хеш + salt в БД; pepper извън</td>
+            </tr>
+            <tr>
+                <td>Цел</td>
+                <td>Конфиденциалност</td>
+                <td>Верификация</td>
+                <td>Защита срещу rainbow tables</td>
+                <td>Защита при кражба на БД</td>
+            </tr>
+            <tr>
+                <td>Пример</td>
+                <td>HTTPS, TLS</td>
+                <td>Контролни суми, пароли</td>
+                <td>Хеширане на пароли</td>
+                <td>Допълнителен слой за пароли</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="practices">
+        <h2>7. Добри практики</h2>
+
+        <h3>7.1 За пароли</h3>
+        <ul>
+            <li>Никога не съхранявайте пароли в открит вид или като криптирани стойности [4, 5]</li>
+            <li>Използвайте <strong>bcrypt</strong> (cost ≥ 12) или <strong>Argon2id</strong> (OWASP препоръка) [2]</li>
+            <li>Оставете <code>password_hash()</code> да генерира солта автоматично [2]</li>
+            <li>Препоръчително хеширането да отнема 250–500 ms; нагласете cost спрямо сървъра</li>
+            <li>Добавете пипер, съхранен в environment variable или HSM [1]</li>
+            <li>bcrypt е ограничен до 72 байта – при по-дълги пароли използвайте предварителен HMAC</li>
+        </ul>
+
+        <h3>7.2 За криптиране</h3>
+        <ul>
+            <li>Използвайте <strong>AES-256</strong> за симетрично криптиране [7]</li>
+            <li>Никога не разработвайте собствени криптографски алгоритми</li>
+            <li>Съхранявайте ключовете отделно от данните – например в HSM</li>
+            <li>Използвайте проверени библиотеки като OpenSSL или libsodium</li>
+        </ul>
+
+        <div class="subsection">
+            <h3>7.3 Препоръчителен стек за пароли</h3>
+            <p>На Код 4 е показана пълна схема препоръчана от OWASP и NIST за сигурно
+                съхранение на пароли с всички три слоя на защита [1, 2]:</p>
+
+            <pre>
+// Код 4. Парола + сол + пипер с Argon2id в PHP
+
+$pepper = sodium_hex2bin(getenv('APP_PEPPER_HEX'));
+
+function secureHash(string $password, string $pepper): string {
+    $prehash = base64_encode(hash_hmac('sha256', $password, $pepper, true));
+    return password_hash($prehash, PASSWORD_ARGON2ID, [
+        'memory_cost' => 65536,
+        'time_cost'   => 4,
+        'threads'     => 2,
+    ]);
+}
+
+function secureVerify(string $password, string $hash, string $pepper): bool {
+    $prehash = base64_encode(hash_hmac('sha256', $password, $pepper, true));
+    return password_verify($prehash, $hash);
+}</pre>
+        </div>
+    </section>
+
+    <section id="information">
+        <h2>8. Източници</h2>
+        <div class="references">
+            <ol>
+                <li>Wikipedia contributors, "Pepper (cryptography)", Wikipedia, The Free Encyclopedia,
+                    публикувано 2024,
+                    [<a href="https://en.wikipedia.org/wiki/Pepper_(cryptography)" target="_blank">https://en.wikipedia.org/wiki/Pepper_(cryptography)</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>The PHP Group, "password_hash – Manual", PHP Documentation,
+                    [<a href="https://www.php.net/manual/en/function.password-hash.php" target="_blank">https://www.php.net/manual/en/function.password-hash.php</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>Wikipedia contributors, "Salt (cryptography)", Wikipedia, The Free Encyclopedia,
+                    публикувано 2024,
+                    [<a href="https://en.wikipedia.org/wiki/Salt_(cryptography)" target="_blank">https://en.wikipedia.org/wiki/Salt_(cryptography)</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>Jake Fielding, "Encryption, hashing, salting – what's the difference and how do they work?",
+                    Comparitech, публикувано Jan 24 2024,
+                    [<a href="https://www.comparitech.com/blog/information-security/encryption-hashing-salting/" target="_blank">https://www.comparitech.com/blog/information-security/encryption-hashing-salting/</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>Cybernews Team, "Hashing vs Encryption: what's the difference?", Cybernews,
+                    публикувано Mar 14 2022,
+                    [<a href="https://cybernews.com/security/hashing-vs-encryption/" target="_blank">https://cybernews.com/security/hashing-vs-encryption/</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>Patrick Nohe, "The difference between Encryption, Hashing and Salting",
+                    The SSL Store Blog, публикувано Dec 14 2022,
+                    [<a href="https://www.thesslstore.com/blog/difference-encryption-hashing-salting/" target="_blank">https://www.thesslstore.com/blog/difference-encryption-hashing-salting/</a>],
+                    последно посетен на 2025-03-22.</li>
+                <li>GeeksForGeeks, "What is Data Encryption?", GeeksForGeeks, Computer Networks,
+                    публикувано 2024,
+                    [<a href="https://www.geeksforgeeks.org/computer-networks/what-is-data-encryption/" target="_blank">https://www.geeksforgeeks.org/computer-networks/what-is-data-encryption/</a>],
+                    последно посетен на 2025-03-23.</li>
+            </ol>
+        </div>
+    </section>
+
+    <section id="figures-list">
+        <h2>Списък с фигури</h2>
+        <ul>
+            <li><a href="#fig1">Фигура 1.</a> Еднопосочният характер на хеш функцията – обратното изчисление е практически невъзможно.</li>
+            <li><a href="#fig2">Фигура 2.</a> Солта се комбинира с паролата преди хеширане и се запазва в базата данни.</li>
+            <li><a href="#fig3">Фигура 3.</a> Хеширане с пипер – пиперът не се съхранява в базата данни.</li>
+        </ul>
+    </section>
+
+    <section id="tables-list">
+        <h2>Списък с таблици</h2>
+        <ul>
+            <li><a href="#hashing">Таблица 1.</a> Сравнение на популярни хеш алгоритми.</li>
+            <li><a href="#peppering">Таблица 2.</a> Сравнение между сол (salt) и пипер (pepper).</li>
+            <li><a href="#comparison">Таблица 3.</a> Сравнение между криптиране, хеширане, посоляване и пиперене.</li>
+        </ul>
+    </section>
+
+    <section id="code-list">
+        <h2>Списък с програмен код</h2>
+        <ul>
+            <li><a href="#salting">Код 1.</a> Хеширане и верификация с password_hash() – PHP Manual [2]</li>
+            <li><a href="#salting">Код 2.</a> Намиране на оптимален cost параметър за bcrypt – PHP Manual [2]</li>
+            <li><a href="#peppering">Код 3.</a> Хеширане с пипер в PHP – Wikipedia Pepper (cryptography) [1]</li>
+            <li><a href="#practices">Код 4.</a> Пълна схема – парола + сол + пипер с Argon2id в PHP</li>
+        </ul>
+    </section>
+
+</main>
+
+<script src="javascript/main.js"></script>
+</body>
+</html>
